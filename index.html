@@ -113,13 +113,14 @@ function analyze(k){
 
 /* ---------- data ---------- */
 const SRC={
- binance:async(s,tf)=>{const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}USDT&interval=${tf}&limit=120`);const j=await r.json();if(!Array.isArray(j))throw 0;return j.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}))},
- okx:async(s,tf)=>{const bar={"15m":"15m","1h":"1H","4h":"4H","1d":"1D"}[tf];const r=await fetch(`https://www.okx.com/api/v5/market/candles?instId=${s}-USDT&bar=${bar}&limit=120`);const j=await r.json();if(!j.data?.length)throw 0;return j.data.reverse().map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}))},
- bybit:async(s,tf)=>{const iv={"15m":"15","1h":"60","4h":"240","1d":"D"}[tf];const r=await fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${s}USDT&interval=${iv}&limit=120`);const j=await r.json();const l=j.result?.list;if(!l?.length)throw 0;return l.reverse().map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}))}
+ binance:async(s,tf,n=120)=>{const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}USDT&interval=${tf}&limit=${n}`);const j=await r.json();if(!Array.isArray(j))throw 0;return j.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}))},
+ okx:async(s,tf,n=120)=>{const bar={"15m":"15m","1h":"1H","4h":"4H","1d":"1D"}[tf];const r=await fetch(`https://www.okx.com/api/v5/market/candles?instId=${s}-USDT&bar=${bar}&limit=${n}`);const j=await r.json();if(!j.data?.length)throw 0;return j.data.reverse().map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}))},
+ bybit:async(s,tf,n=120)=>{const iv={"15m":"15","1h":"60","4h":"240","1d":"D"}[tf];const r=await fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${s}USDT&interval=${iv}&limit=${n}`);const j=await r.json();const l=j.result?.list;if(!l?.length)throw 0;return l.reverse().map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}))}
 };
 let srcName="";
-async function fetchSym(s){
- for(const [n,f] of Object.entries(SRC)){try{const k=await f(s,tf);srcName=n;return k}catch(e){}}
+async function fetchSym(s,n=120){
+ if(srcName){try{return await SRC[srcName](s,tf,n)}catch(e){}}
+ for(const [nm,f] of Object.entries(SRC)){try{const k=await f(s,tf,n);srcName=nm;return k}catch(e){}}
  throw new Error("nenhuma corretora respondeu. Se você está dentro do app do Claude, abra este arquivo no Chrome/Safari");
 }
 async function refresh(){
@@ -127,6 +128,17 @@ async function refresh(){
  await Promise.all(syms.map(async s=>{try{const k=await fetchSym(s);data[s]={k,a:analyze(k),err:null}}catch(e){data[s]={err:e.message}}}));
  render();checkAlerts();if(current)openSheet(current,true);
  $("#status").textContent=(srcName?srcName+" · ":"")+"atualizado "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+
+let busy=false;
+async function tick(){
+ if(busy||!srcName)return;busy=true;
+ const targets=current?[current]:syms;
+ await Promise.all(targets.map(async s=>{const d=data[s];if(!d||d.err)return;try{const k2=await fetchSym(s,2);const k=d.k;
+  k2.forEach(c=>{const i=k.findIndex(x=>x.t===c.t);i>=0?k[i]=c:k.push(c)});if(k.length>120)k.splice(0,k.length-120);d.a=analyze(k)}catch(e){}}));
+ busy=false;
+ if(current)openSheet(current,true);else render();
+ $("#status").textContent=srcName+" · "+new Date().toLocaleTimeString("pt-BR");
 }
 
 /* ---------- list ---------- */
@@ -231,7 +243,7 @@ function checkAlerts(){
 
 /* ---------- boot ---------- */
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
-(async()=>{await loadSyms();tabs();await refresh();timer=setInterval(refresh,60000)})();
+(async()=>{await loadSyms();tabs();await refresh();timer=setInterval(refresh,30000);setInterval(tick,2000)})();
 </script>
 </body>
 </html>
