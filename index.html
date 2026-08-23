@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cripto Radar</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0E1420">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0E1420;--panel:#161D2B;--line:#232C3D;--txt:#E6EAF2;--mut:#7D8798;--up:#3DD68C;--dn:#F26D6D;--sig:#F5B73F;--blue:#6FA8FF}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.45 "IBM Plex Mono",ui-monospace,Menlo,monospace}
+body{padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px)}
+h1,h2,.num{font-family:"Space Grotesk",system-ui,sans-serif}
+header{display:flex;align-items:baseline;justify-content:space-between;padding:18px 16px 6px}
+h1{margin:0;font-size:22px;letter-spacing:-.02em}
+h1 small{color:var(--mut);font-size:12px;font-weight:500;margin-left:8px}
+#status{font-size:11px;color:var(--mut)}
+.tabs{display:flex;gap:6px;padding:8px 16px;overflow-x:auto;scrollbar-width:none}
+.tabs button{background:var(--panel);border:1px solid var(--line);color:var(--mut);border-radius:999px;padding:6px 12px;font:inherit;font-size:12px}
+.tabs button.on{color:var(--txt);border-color:var(--sig)}
+.list{padding:8px 12px;display:grid;gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:4px 10px;cursor:pointer}
+.card .sym{font-weight:700;font-size:16px;font-family:"Space Grotesk"}
+.card .px{font-size:16px;text-align:right;font-weight:500}
+.card .chg{text-align:right;font-size:12px}
+.card .meta{grid-column:1/-1;display:flex;gap:10px;font-size:11px;color:var(--mut);flex-wrap:wrap;align-items:center}
+.card canvas{grid-column:1/-1;width:100%;height:36px}
+.rsi{display:inline-flex;align-items:center;gap:6px}
+.rsi .bar{width:60px;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--up) 0 30%,var(--line) 30% 70%,var(--dn) 70%);position:relative}
+.rsi .bar i{position:absolute;top:-3px;width:3px;height:11px;background:#fff;border-radius:2px;margin-left:-1px}
+.badges{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
+.cat{grid-column:1/-1;font-size:12px;padding:6px 10px;border-radius:8px;display:flex;justify-content:space-between;gap:8px}.cat.alta{background:rgba(61,214,140,.12);color:var(--up)}.cat.baixa{background:rgba(242,109,109,.12);color:var(--dn)}.cat.neutro{background:rgba(125,135,152,.12);color:var(--mut)}.cat small{opacity:.8}
+.badge{font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(245,183,63,.12);color:var(--sig);border:1px solid rgba(245,183,63,.35)}
+.up{color:var(--up)}.dn{color:var(--dn)}
+.empty{color:var(--mut);text-align:center;padding:40px 20px;font-size:13px}
+.addrow{display:flex;gap:8px;padding:4px 12px 0}
+.addrow input{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;text-transform:uppercase}
+.addrow button,.btn{background:var(--sig);color:#1a1405;border:0;border-radius:10px;padding:10px 14px;font:inherit;font-weight:500;font-size:13px}
+.btn.ghost{background:transparent;color:var(--mut);border:1px solid var(--line)}
+/* detail sheet */
+#sheet{position:fixed;inset:0;background:var(--bg);transform:translateY(100%);transition:transform .28s ease;overflow-y:auto;z-index:10;padding:0 0 40px}
+#sheet.open{transform:none}
+@media (prefers-reduced-motion:reduce){#sheet{transition:none}}
+.sh-head{display:flex;align-items:center;justify-content:space-between;padding:16px;position:sticky;top:0;background:var(--bg)}
+.sh-head h2{margin:0;font-size:20px}
+#chart{width:100%;height:380px;display:block;touch-action:none}
+#tip{margin:0 12px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;font-size:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:4px 8px;min-height:58px}
+#tip b{display:block;color:var(--mut);font-weight:400;font-size:10px}#tip .t{grid-column:1/-1;color:var(--sig)}
+.sec{padding:14px 14px 4px;font-size:11px;color:var(--mut);letter-spacing:.08em;text-transform:uppercase}
+.hl{display:flex;justify-content:space-between;padding:0 16px 6px;font-size:12px;color:var(--mut)}
+.legend{display:flex;gap:12px;padding:6px 16px;font-size:11px;color:var(--mut);flex-wrap:wrap}
+.legend span::before{content:"";display:inline-block;width:14px;height:2px;margin-right:5px;vertical-align:middle;background:currentColor}
+.lg-sma20{color:var(--blue)}.lg-sma50{color:#C08CFF}.lg-bb{color:var(--mut)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer}
+.stat b{display:block;font-size:11px;color:var(--mut);font-weight:400;margin-bottom:2px}
+.stat .num{font-size:18px;font-weight:700}
+.stat.on{border-color:var(--sig)}
+#lesson{margin:0 12px;padding:12px 14px;background:rgba(111,168,255,.08);border:1px solid rgba(111,168,255,.3);border-radius:12px;font-size:13px;display:none}
+#lesson.show{display:block}
+#lesson b{color:var(--blue)}
+.ai{margin:12px;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;font-size:13px;white-space:pre-wrap}
+.ai:empty{display:none}
+#alog{padding:0 12px}#alog:empty{display:none}.al{background:rgba(245,183,63,.10);border:1px solid rgba(245,183,63,.35);border-radius:12px;padding:10px 12px;margin-bottom:8px;font-size:12px;display:flex;justify-content:space-between;gap:8px}.al b{color:var(--sig)}.al small{color:var(--mut);white-space:nowrap}
+.mark{position:absolute}
+.nw{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;font-size:13px;display:block;color:var(--txt);text-decoration:none}.nw small{display:block;color:var(--mut);font-size:11px;margin-top:4px}.nw.hit{border-color:rgba(245,183,63,.5)}.nw .k{color:var(--sig)}
+.rd{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px}.rd h3{margin:0 0 6px;font:700 18px "Space Grotesk"}.rd .alta{color:var(--up)}.rd .baixa{color:var(--dn)}.rd .neutro{color:var(--mut)}.rd b{color:var(--mut);font-weight:400;font-size:11px;display:block;margin-top:8px}
+.foot{padding:20px 16px 0;font-size:11px;color:var(--mut);text-align:center}
+</style>
+</head>
+<body>
+<header><h1>Cripto Radar<small>ao vivo</small></h1><div style="display:flex;align-items:center;gap:10px"><span id="status">carregando…</span><button id="bell" class="btn ghost" style="padding:6px 10px" onclick="toggleAlerts()">🔔 off</button><button id="auto" class="btn ghost" style="padding:6px 10px" onclick="toggleAuto()">🤖 off</button><select id="autoMin" class="btn ghost" style="padding:6px 8px" onchange="setAutoMin(this.value)"><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 h</option><option value="240">4 h</option></select></div></header>
+<div class="legend" id="scoreMain" style="padding-top:0"></div>
+<div id="alog"></div>
+<div class="tabs" style="padding-top:0"><button id="tabM" class="on" onclick="showTab('m')">Mercado</button><button id="tabN" onclick="showTab('n')">Notícias</button></div>
+<div id="news" style="display:none;padding:0 12px">
+ <div class="addrow" style="padding:0 0 8px"><input id="kw" placeholder="palavras-chave: bitcoin, sec, etf, trump…"><button onclick="saveKw()">Salvar</button></div>
+ <div id="newslist"><div class="empty">Buscando…</div></div>
+</div>
+<div class="tabs" id="tfs"></div>
+<div class="addrow"><input id="newsym" placeholder="adicionar: SOL, PEPE, TRUMP…" autocapitalize="characters"><button onclick="addSym()">Adicionar</button></div>
+<div class="list" id="list"><div class="empty">Buscando dados…</div></div>
+<div class="foot">🤖 liga a leitura automática da IA (vira notificação quando FAVORÁVEL ≥70%). 🔔 liga as notificações (funciona com o app aberto ou em segundo plano; pra 24h use o bot do Telegram). Toque numa moeda pra abrir o gráfico. Toque num número pra aprender o que ele significa.<br>Indicadores são probabilidade, não previsão.</div>
+
+<div id="sheet">
+  <div class="sh-head"><h2 id="sh-title">—</h2><div style="display:flex;gap:8px"><button class="btn ghost" onclick="localStorage.removeItem('radar:key');alert('Chave apagada')">Chave</button><button class="btn ghost" onclick="removeSym()">Remover</button><button class="btn ghost" onclick="closeSheet()">Fechar</button></div></div>
+  <div class="hl" id="hl"></div>
+  <canvas id="chart"></canvas>
+  <div class="legend"><span style="color:var(--mut)">1 dedo: cursor · 2 dedos: zoom e arrastar · até 500 velas</span></div>
+  <div class="legend"><span class="lg-sma20">SMA 20</span><span class="lg-sma50">SMA 50</span><span class="lg-bb">Bollinger</span><span style="color:var(--mut)">barras = volume · painel inferior = RSI</span></div>
+  <div id="tip"><span class="t">Arraste o dedo no gráfico pra ver cada vela</span></div>
+  <div class="grid" id="stats"></div>
+  <div id="lesson"></div>
+  <div style="padding:12px 12px 0;display:flex;gap:8px;flex-wrap:wrap">
+   <button class="btn" onclick="askClaude()">Explicar com marcações</button><button class="btn" style="background:var(--blue)" onclick="aiRead()">Leitura da IA</button>
+   <button class="btn ghost" onclick="compareWith()" id="cmpBtn">Comparar com…</button>
+   <button class="btn ghost" onclick="paperBuy()">Comprar (fictício)</button>
+   <button class="btn ghost" onclick="paperSell()">Vender (fictício)</button>
+  </div>
+  <div class="legend" id="paperLine"></div>
+  <div style="padding:8px 12px 0;display:flex;gap:8px;flex-wrap:wrap" id="ext"></div>
+  <div class="ai" id="ai"></div>
+  <div id="read" style="margin:0 12px"></div>
+  <div class="legend" id="score"></div>
+</div>
+
+<script>
+const TFS=["15m","1h","4h","1d"];
+let tf="1h", syms=["BTC","ETH","SOL","BNB","DOGE"], data={}, current=null, timer=null;
+const $=s=>document.querySelector(s);
+
+/* ---------- persistence (watchlist) ---------- */
+async function loadSyms(){ try{if(window.storage){const r=await window.storage.get("radar:syms"); if(r&&r.value) syms=JSON.parse(r.value);}else{const v=localStorage.getItem("radar:syms");if(v)syms=JSON.parse(v)}}catch(e){} }
+async function saveSyms(){ try{if(window.storage)await window.storage.set("radar:syms",JSON.stringify(syms));else localStorage.setItem("radar:syms",JSON.stringify(syms))}catch(e){} }
+
+/* ---------- indicators ---------- */
+const sma=(a,n)=>a.map((_,i)=>i<n-1?null:a.slice(i-n+1,i+1).reduce((s,x)=>s+x,0)/n);
+function rsi(c,n=14){const out=[];let up=0,dn=0;for(let i=1;i<c.length;i++){const d=c[i]-c[i-1];const u=Math.max(d,0),v=Math.max(-d,0);
+ if(i<=n){up+=u/n;dn+=v/n;out.push(null)}else{up=(up*(n-1)+u)/n;dn=(dn*(n-1)+v)/n;out.push(dn===0?100:100-100/(1+up/dn))}}out.unshift(null);return out}
+function std(a){const m=a.reduce((s,x)=>s+x,0)/a.length;return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/a.length)}
+function analyze(k){
+ const c=k.map(x=>x.c),v=k.map(x=>x.v),n=c.length;
+ const s20=sma(c,20),s50=sma(c,50),r=rsi(c);
+ const win=c.slice(-20),m=win.reduce((s,x)=>s+x,0)/20,sd=std(win),up=m+2*sd,lo=m-2*sd;
+ const vwin=v.slice(-51,-1),vm=vwin.reduce((s,x)=>s+x,0)/vwin.length,vs=std(vwin);
+ const a={price:c[n-1],rsi:r[n-1],sma20:s20[n-1],sma50:s50[n-1],bbUp:up,bbLo:lo,
+  bbPos:(c[n-1]-lo)/(up-lo||1),volZ:vs?(v[n-1]-vm)/vs:0,chg1:(c[n-1]/c[n-2]-1)*100,chg24:(c[n-1]/c[Math.max(0,n-25)]-1)*100,sig:[]};
+ if(a.rsi<=30)a.sig.push("RSI sobrevendido");if(a.rsi>=70)a.sig.push("RSI sobrecomprado");
+ if(a.volZ>=3)a.sig.push("volume anômalo");if(Math.abs(a.chg1)>=4)a.sig.push(`${a.chg1>0?"+":""}${a.chg1.toFixed(1)}% na vela`);
+ if(a.bbPos>1)a.sig.push("fora da Bollinger ↑");if(a.bbPos<0)a.sig.push("fora da Bollinger ↓");
+ if(s20[n-2]&&s50[n-2]){if(s20[n-2]<s50[n-2]&&s20[n-1]>=s50[n-1])a.sig.push("golden cross");if(s20[n-2]>s50[n-2]&&s20[n-1]<=s50[n-1])a.sig.push("death cross")}
+ a.s20=s20;a.s50=s50;return a;
+}
+
+/* ---------- data ---------- */
+const SRC={
+ binance:async(s,tf,n=120)=>{const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}USDT&interval=${tf}&limit=${n}`);const j=await r.json();if(!Array.isArray(j))throw 0;return j.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}))},
+ okx:async(s,tf,n=120)=>{const bar={"15m":"15m","1h":"1H","4h":"4H","1d":"1D"}[tf];const r=await fetch(`https://www.okx.com/api/v5/market/candles?instId=${s}-USDT&bar=${bar}&limit=${n}`);const j=await r.json();if(!j.data?.length)throw 0;return j.data.reverse().map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}))},
+ bybit:async(s,tf,n=120)=>{const iv={"15m":"15","1h":"60","4h":"240","1d":"D"}[tf];const r=await fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${s}USDT&interval=${iv}&limit=${n}`);const j=await r.json();const l=j.result?.list;if(!l?.length)throw 0;return l.reverse().map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4],v:+x[5]}))}
+};
+let srcName="";
+async function fetchSym(s,n=500){
+ if(srcName){try{return await SRC[srcName](s,tf,n)}catch(e){}}
+ for(const [nm,f] of Object.entries(SRC)){try{const k=await f(s,tf,n);srcName=nm;return k}catch(e){}}
+ throw new Error("nenhuma corretora respondeu. Se você está dentro do app do Claude, abra este arquivo no Chrome/Safari");
+}
+async function refresh(){
+ $("#status").textContent="atualizando…";
+ await Promise.all(syms.map(async s=>{try{const k=await fetchSym(s);data[s]={k,a:analyze(k),err:null}}catch(e){data[s]={err:e.message}}}));
+ render();checkAlerts();if(current)openSheet(current,true);
+ $("#status").textContent=(srcName?srcName+" · ":"")+"atualizado "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+
+let busy=false;
+async function tick(){
+ if(busy||!srcName)return;busy=true;
+ const targets=current?[current]:syms;
+ await Promise.all(targets.map(async s=>{const d=data[s];if(!d||d.err)return;try{const k2=await fetchSym(s,2);const k=d.k;
+  k2.forEach(c=>{const i=k.findIndex(x=>x.t===c.t);i>=0?k[i]=c:k.push(c)});if(k.length>500)k.splice(0,k.length-500);d.a=analyze(k)}catch(e){}}));
+ busy=false;
+ if(current)openSheet(current,true);else render();
+ $("#status").textContent=srcName+" · "+new Date().toLocaleTimeString("pt-BR");
+}
+
+/* ---------- list ---------- */
+const fmt=p=>p>=1000?p.toLocaleString("pt-BR",{maximumFractionDigits:0}):p>=1?p.toFixed(2):p.toPrecision(4);
+function render(){
+ const L=$("#list");L.innerHTML="";
+ const order=[...syms].sort((x,y)=>((data[y]?.a?.sig.length)||0)-((data[x]?.a?.sig.length)||0));
+ if(!order.length){L.innerHTML='<div class="empty">Lista vazia. Adicione uma moeda acima.</div>';return}
+ for(const s of order){const d=data[s];const el=document.createElement("div");el.className="card";el.onclick=()=>openSheet(s);
+  if(!d){el.innerHTML=`<span class="sym">${s}</span><span class="px">…</span>`;L.appendChild(el);continue}
+  if(d.err){el.innerHTML=`<span class="sym">${s}</span><span class="px dn">erro</span><span class="meta">${d.err}</span>`;L.appendChild(el);continue}
+  const a=d.a,cls=a.chg24>=0?"up":"dn";
+  el.innerHTML=`<span class="sym">${s}</span><span class="px num">${fmt(a.price)}</span>
+   <span class="meta"><span class="rsi">RSI <span class="bar"><i style="left:${Math.min(100,Math.max(0,a.rsi))}%"></i></span> ${a.rsi.toFixed(0)}</span>
+   <span>vol z ${a.volZ.toFixed(1)}</span><span>BB ${a.bbPos.toFixed(2)}</span><span>${a.sma20>a.sma50?"↑ acima SMA50":"↓ abaixo SMA50"}</span></span>
+   <span class="chg ${cls}" style="grid-column:2;grid-row:1">${a.chg24>=0?"+":""}${a.chg24.toFixed(2)}% / 24 velas</span>
+   ${aiBadge(s)}${a.sig.length?`<div class="badges">${a.sig.map(x=>`<span class="badge">${x}</span>`).join("")}</div>`:""}
+   <canvas></canvas>`;
+  L.appendChild(el);spark(el.querySelector("canvas"),d.k.map(x=>x.c),cls);
+ }
+}
+function spark(cv,c,cls){const W=cv.clientWidth*2,H=72;cv.width=W;cv.height=H;const x=cv.getContext("2d");const mn=Math.min(...c),mx=Math.max(...c);
+ x.strokeStyle=cls==="up"?"#3DD68C":"#F26D6D";x.lineWidth=2;x.beginPath();c.forEach((p,i)=>{const X=i/(c.length-1)*W,Y=H-6-(p-mn)/(mx-mn||1)*(H-12);i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke()}
+
+/* ---------- timeframes / watchlist ---------- */
+function tabs(){$("#tfs").innerHTML=TFS.map(t=>`<button class="${t===tf?"on":""}" onclick="setTf('${t}')">${t}</button>`).join("")}
+function setTf(t){tf=t;tabs();refresh()}
+async function addSym(){const s=$("#newsym").value.trim().toUpperCase().replace(/USDT$/,"");if(!s||syms.includes(s))return;syms.push(s);$("#newsym").value="";await saveSyms();refresh()}
+async function removeSym(){syms=syms.filter(x=>x!==current);delete data[current];await saveSyms();closeSheet();render()}
+
+/* ---------- detail sheet ---------- */
+const LESSONS={
+ rsi:"<b>RSI</b> mede a força dos últimos 14 movimentos, de 0 a 100. Abaixo de 30: caiu rápido demais, pode ter exagero de venda. Acima de 70: subiu rápido demais. <b>Armadilha:</b> em tendência forte o RSI fica extremo por dias e quem opera contra ele perde. Use como alerta, nunca como gatilho sozinho.",
+ sma:"<b>SMA 20 e 50</b> são as médias dos últimos 20 e 50 fechamentos. Preço acima das duas = tendência de alta de curto prazo. SMA20 cruzando a 50 pra cima = golden cross, pra baixo = death cross. <b>Armadilha:</b> médias atrasam; o cruzamento aparece depois que boa parte do movimento já aconteceu.",
+ bb:"<b>Bollinger</b> é a média de 20 ± 2 desvios-padrão. O número mostra onde o preço está dentro da banda: 0 = na inferior, 1 = na superior. Fora da banda (<0 ou >1) é estatisticamente raro. <b>Armadilha:</b> raro não é impossível. Em pânico ou euforia o preço anda colado na banda.",
+ vol:"<b>Volume z-score</b> compara o volume da vela atual com a média das últimas 50. z=3 significa 3 desvios acima do normal: alguém grande entrou. Movimento de preço <i>com</i> volume é mais confiável que sem. <b>Armadilha:</b> volume alto no topo costuma ser distribuição (grandes vendendo pra pequenos).",
+ chg:"<b>Variação</b> da última vela e das últimas 24 velas no tempo gráfico escolhido. Movimento acima de 4% numa vela é anômalo pra BTC/ETH e normal pra memecoin. <b>Armadilha:</b> comprar depois de uma vela gigante é comprar o que outro já lucrou."
+};
+function openSheet(s,silent){current=s;const d=data[s];if(!d||d.err)return;const a=d.a;
+ $("#sh-title").textContent=`${s}/USDT · ${tf}`;
+ const cell=(k,label,val,cls="")=>`<div class="stat" data-k="${k}" onclick="lesson('${k}',this)"><b>${label}</b><span class="num ${cls}">${val}</span></div>`;
+ const hi24=Math.max(...d.k.slice(-24).map(p=>p.h)),lo24=Math.min(...d.k.slice(-24).map(p=>p.l));
+ $("#hl").innerHTML=`<span>mín 24v <b class="dn">${fmt(lo24)}</b></span><span>agora <b>${fmt(a.price)}</b></span><span>máx 24v <b class="up">${fmt(hi24)}</b></span>`;
+ $("#stats").innerHTML=cell("chg","última vela / 24 velas",`${a.chg1>=0?"+":""}${a.chg1.toFixed(2)}% / ${a.chg24>=0?"+":""}${a.chg24.toFixed(1)}%`,a.chg24>=0?"up":"dn")
+  +cell("rsi","RSI 14",a.rsi.toFixed(1),a.rsi<=30?"up":a.rsi>=70?"dn":"")
+  +cell("sma","SMA 20 / 50",`${fmt(a.sma20)} / ${a.sma50?fmt(a.sma50):"—"}`)
+  +cell("bb","posição na Bollinger",a.bbPos.toFixed(2),a.bbPos>1||a.bbPos<0?"dn":"")
+  +cell("vol","volume z-score",a.volZ.toFixed(2),a.volZ>=3?"up":"");
+ if(!silent){$("#lesson").className="";$("#ai").textContent="";hl=null;notes=[];cmp=null;$("#cmpBtn").textContent="Comparar com…";view={start:Math.max(0,d.k.length-120),n:120};$("#sheet").classList.add("open")}
+ paperStatus();if(!silent)scoreboard();
+ const tvi={"15m":"15","1h":"60","4h":"240","1d":"D"}[tf];
+ $("#ext").innerHTML=[["TradingView",`https://www.tradingview.com/chart/?symbol=BINANCE:${s}USDT&interval=${tvi}`],["Binance",`https://www.binance.com/en/trade/${s}_USDT`],["CoinGecko",`https://www.coingecko.com/en/search?query=${s}`],["OKX",`https://www.okx.com/trade-spot/${s.toLowerCase()}-usdt`],["Webull",`https://www.webull.com/quote/ccc-${s.toLowerCase()}usd`]]
+  .map(([n,u])=>`<a class="btn ghost" style="text-decoration:none" href="${u}" target="_blank" rel="noopener">↗ ${n}</a>`).join("");
+ drawChart(d.k,a);
+}
+function closeSheet(){$("#sheet").classList.remove("open");current=null;hover=null;hl=null;notes=[];cmp=null}
+function lesson(k,el){const same=hl===k;document.querySelectorAll(".stat").forEach(x=>x.classList.remove("on"));const L=$("#lesson");if(same){hl=null;L.className="";redraw();return}el.classList.add("on");hl=k;L.innerHTML=LESSONS[k]+"<br><small style='color:var(--mut)'>↑ no gráfico: o resto ficou apagado, só o que importa pra esse número está aceso. Toque de novo pra voltar.</small>";L.className="show";redraw()}
+let hover=null,chartK=null,chartA=null,view={start:0,n:120},hl=null,notes=[],cmp=null;
+const tfLabel=t=>{const d=new Date(t);return tf==="1d"?d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}):d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})};
+function drawChart(k,a){chartK=k;chartA=a;const cv=$("#chart"),W=cv.clientWidth*2,H=760;cv.width=W;cv.height=H;const x=cv.getContext("2d");
+ view.n=Math.max(20,Math.min(k.length,view.n));view.start=Math.max(0,Math.min(k.length-view.n,view.start));
+ const s0=view.start,N=view.n,kk=k.slice(s0,s0+N),PR=92,L=8,T=14,pH=470,vT=T+pH+6,vH=90,rT=vT+vH+18,rH=H-rT-34;
+ const dim=hl?0.22:1,full=cls=>!hl||hl===cls?1:dim;
+ const c=k.map(p=>p.c);const bbU=[],bbL=[];for(let i=0;i<k.length;i++){if(i<19){bbU.push(null);bbL.push(null);continue}const w=c.slice(i-19,i+1),m=w.reduce((s,v)=>s+v,0)/20,sd=std(w);bbU.push(m+2*sd);bbL.push(m-2*sd)}
+ const hi=Math.max(...kk.map(p=>p.h),...bbU.slice(s0,s0+N).filter(v=>v)),lo=Math.min(...kk.map(p=>p.l),...bbL.slice(s0,s0+N).filter(v=>v));
+ const Y=p=>T+(hi-p)/(hi-lo||1)*pH,X=i=>L+(i-s0+.5)/N*(W-PR-L),bw=Math.max(1.5,(W-PR-L)/N*.62);
+ x.clearRect(0,0,W,H);x.font="20px IBM Plex Mono, monospace";
+ x.strokeStyle="#1C2434";x.fillStyle="#7D8798";x.textAlign="left";x.lineWidth=1;
+ for(let g=0;g<=5;g++){const p=lo+(hi-lo)*g/5,y=Y(p);x.beginPath();x.moveTo(L,y);x.lineTo(W-PR,y);x.stroke();x.fillText(fmt(p),W-PR+8,y+7)}
+ const step=Math.max(1,Math.round(N/5));x.textAlign="center";
+ for(let i=s0+step;i<s0+N;i+=step){x.strokeStyle="#1C2434";x.beginPath();x.moveTo(X(i),T);x.lineTo(X(i),H-30);x.stroke();x.fillStyle="#7D8798";x.fillText(tfLabel(k[i].t),X(i),H-8)}
+ // bollinger
+ x.globalAlpha=full("bb");x.fillStyle=hl==="bb"?"rgba(111,168,255,.22)":"rgba(125,135,152,.10)";x.beginPath();let st=false;
+ for(let i=s0;i<s0+N;i++){if(bbU[i]==null)continue;st?x.lineTo(X(i),Y(bbU[i])):x.moveTo(X(i),Y(bbU[i]));st=true}
+ for(let i=s0+N-1;i>=s0;i--){if(bbL[i]==null)continue;x.lineTo(X(i),Y(bbL[i]))}x.closePath();x.fill();x.globalAlpha=1;
+ // candles + volume
+ const vmax=Math.max(...kk.map(p=>p.v)),vmean=kk.reduce((s,p)=>s+p.v,0)/N;
+ kk.forEach((p,j)=>{const i=s0+j,up=p.c>=p.o,col=up?"#3DD68C":"#F26D6D";x.globalAlpha=full("chg")*(hl==="chg"&&i<k.length-1?dim:1);x.strokeStyle=x.fillStyle=col;x.lineWidth=1.5;
+  x.beginPath();x.moveTo(X(i),Y(p.h));x.lineTo(X(i),Y(p.l));x.stroke();x.fillRect(X(i)-bw/2,Math.min(Y(p.o),Y(p.c)),bw,Math.max(2,Math.abs(Y(p.o)-Y(p.c))));
+  const big=p.v>vmean*2.5;x.globalAlpha=hl==="vol"?(big?1:dim):.55;x.fillStyle=hl==="vol"&&big?"#F5B73F":col;x.fillRect(X(i)-bw/2,vT+vH-(p.v/vmax)*vH,bw,(p.v/vmax)*vH);x.globalAlpha=1});
+ const line=(arr,col,Yf,w=2.5,alpha=1)=>{x.globalAlpha=alpha;x.strokeStyle=col;x.lineWidth=w;x.beginPath();let st=false;for(let i=s0;i<s0+N;i++){const v=arr[i];if(v==null)continue;st?x.lineTo(X(i),Yf(v)):x.moveTo(X(i),Yf(v));st=true}x.stroke();x.globalAlpha=1};
+ line(a.s20,"#6FA8FF",Y,hl==="sma"?4:2.5,full("sma"));line(a.s50,"#C08CFF",Y,hl==="sma"?4:2.5,full("sma"));
+ // crossings highlight
+ if(hl==="sma")for(let i=Math.max(s0,51);i<s0+N;i++){const a1=a.s20[i-1]-a.s50[i-1],a2=a.s20[i]-a.s50[i];if(a1*a2<0){x.fillStyle=a2>0?"#3DD68C":"#F26D6D";x.beginPath();x.arc(X(i),Y(a.s20[i]),12,0,7);x.fill();x.fillStyle="#E6EAF2";x.textAlign="center";x.fillText(a2>0?"golden":"death",X(i),Y(a.s20[i])-18)}}
+ if(hl==="bb")for(let i=s0;i<s0+N;i++){if(bbU[i]==null)continue;if(k[i].c>bbU[i]||k[i].c<bbL[i]){x.fillStyle="#6FA8FF";x.beginPath();x.arc(X(i),Y(k[i].c),9,0,7);x.fill()}}
+ // RSI panel
+ const r=rsi(c),RY=v=>rT+(100-v)/100*rH;x.globalAlpha=full("rsi");x.fillStyle=hl==="rsi"?"rgba(245,183,63,.16)":"rgba(245,183,63,.07)";x.fillRect(L,RY(70),W-PR-L,RY(30)-RY(70));
+ x.strokeStyle="#2A3447";[30,50,70].forEach(v=>{x.beginPath();x.moveTo(L,RY(v));x.lineTo(W-PR,RY(v));x.stroke()});
+ x.fillStyle="#7D8798";x.textAlign="left";x.fillText("RSI 70",W-PR+8,RY(70)+7);x.fillText("30",W-PR+8,RY(30)+7);x.globalAlpha=1;
+ line(r,"#F5B73F",RY,hl==="rsi"?4:2.5,full("rsi"));
+ if(hl==="rsi")for(let i=s0;i<s0+N;i++){if(r[i]!=null&&(r[i]<=30||r[i]>=70)){x.fillStyle=r[i]<=30?"#3DD68C":"#F26D6D";x.beginPath();x.arc(X(i),RY(r[i]),7,0,7);x.fill()}}
+ // compare overlay (normalized %)
+ if(cmp&&cmp.k){const base=cmp.k.find(p=>p.t===k[s0].t)||cmp.k[0],pb=k[s0].c;x.strokeStyle="#FF8FD8";x.lineWidth=2.5;x.setLineDash([8,6]);x.beginPath();let st=false;
+  for(let i=s0;i<s0+N;i++){const q=cmp.k.find(p=>p.t===k[i].t);if(!q)continue;const v=pb*(q.c/base.c);st?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v));st=true}x.stroke();x.setLineDash([]);
+  x.fillStyle="#FF8FD8";x.textAlign="left";x.fillText(cmp.s+" (mesma escala %)",L+6,T+22)}
+ // paper trade markers
+ const trades=getTrades().filter(t=>t.s===current);
+ trades.forEach(t=>{let i=k.findIndex(p=>p.t<=t.t&&t.t<p.t+(k[1].t-k[0].t));if(i<s0||i>=s0+N)return;const buy=t.side==="BUY";x.fillStyle=buy?"#3DD68C":"#F26D6D";x.beginPath();
+  const y=buy?Y(t.p)+34:Y(t.p)-34;x.moveTo(X(i),Y(t.p)+(buy?12:-12));x.lineTo(X(i)-12,y);x.lineTo(X(i)+12,y);x.closePath();x.fill();x.fillStyle="#E6EAF2";x.textAlign="center";x.fillText((buy?"C ":"V ")+fmt(t.p),X(i),buy?y+24:y-10)});
+ // Claude annotations
+ x.textAlign="center";notes.forEach(n=>{const i=k.length-1-n.velas_atras;if(i<s0||i>=s0+N)return;const p=k[i],y=Y(p.h)-30;x.fillStyle="#F5B73F";x.beginPath();x.arc(X(i),Y(p.h)-10,8,0,7);x.fill();
+  x.font="700 20px Space Grotesk, sans-serif";const w=x.measureText(n.rotulo).width+18;x.fillStyle="rgba(245,183,63,.95)";x.fillRect(X(i)-w/2,y-24,w,30);x.fillStyle="#1a1405";x.fillText(n.rotulo,X(i),y-2);x.font="20px IBM Plex Mono, monospace"});
+ x.fillStyle="#F5B73F";x.fillRect(W-PR,Y(a.price)-13,PR,26);x.fillStyle="#1a1405";x.textAlign="left";x.fillText(fmt(a.price),W-PR+8,Y(a.price)+7);
+ if(hover!=null&&k[hover]&&hover>=s0&&hover<s0+N){const p=k[hover];x.strokeStyle="rgba(230,234,242,.5)";x.setLineDash([6,6]);x.beginPath();x.moveTo(X(hover),T);x.lineTo(X(hover),H-30);x.stroke();x.beginPath();x.moveTo(L,Y(p.c));x.lineTo(W-PR,Y(p.c));x.stroke();x.setLineDash([]);
+  const ch=(p.c/p.o-1)*100,cls=ch>=0?"up":"dn",prev=k[hover-1];
+  $("#tip").innerHTML=`<span class="t">${tfLabel(p.t)} · vela ${hover+1}/${k.length}${prev?` · vs anterior ${(p.c/prev.c-1)*100>=0?"+":""}${((p.c/prev.c-1)*100).toFixed(2)}%`:""}</span>
+   <span><b>abertura</b>${fmt(p.o)}</span><span><b>máxima</b>${fmt(p.h)}</span><span><b>mínima</b>${fmt(p.l)}</span><span><b>fechamento</b><span class="${cls}">${fmt(p.c)} (${ch>=0?"+":""}${ch.toFixed(2)}%)</span></span>
+   <span><b>volume</b>${p.v.toLocaleString("pt-BR",{maximumFractionDigits:0})}</span><span><b>RSI</b>${r[hover]?r[hover].toFixed(1):"—"}</span><span><b>SMA20</b>${a.s20[hover]?fmt(a.s20[hover]):"—"}</span><span><b>SMA50</b>${a.s50[hover]?fmt(a.s50[hover]):"—"}</span>`}
+}
+// touch: 1 dedo = cursor, 2 dedos = zoom, arrastar com 2 dedos = pan
+(()=>{const cv=$("#chart");let pinch=null;
+ const idx=e=>{const r=cv.getBoundingClientRect(),px=(e.touches?e.touches[0].clientX:e.clientX)-r.left;return view.start+Math.max(0,Math.min(view.n-1,Math.floor((px-4)/(r.width-50)*view.n)))};
+ const dist=e=>Math.abs(e.touches[0].clientX-e.touches[1].clientX);const mid=e=>(e.touches[0].clientX+e.touches[1].clientX)/2;
+ const on=(ev,f)=>cv.addEventListener(ev,f,{passive:true});
+ on("touchstart",e=>{if(e.touches.length===2){pinch={d:dist(e),m:mid(e),n:view.n,s:view.start}}else{hover=idx(e);redraw()}});
+ on("touchmove",e=>{if(e.touches.length===2&&pinch){const r=cv.getBoundingClientRect();const n=Math.round(pinch.n*pinch.d/dist(e));const shift=Math.round((pinch.m-mid(e))/r.width*pinch.n);
+   view.n=Math.max(20,Math.min(chartK.length,n));view.start=pinch.s+shift+Math.round((pinch.n-view.n)/2);redraw()}else if(e.touches.length===1&&!pinch){hover=idx(e);redraw()}});
+ on("touchend",e=>{if(e.touches.length<2)pinch=null});
+ cv.addEventListener("mousemove",e=>{hover=idx(e);redraw()});
+ cv.addEventListener("wheel",e=>{view.n=Math.max(20,Math.min(chartK.length,Math.round(view.n*(e.deltaY>0?1.2:0.8))));view.start=chartK.length-view.n;redraw()},{passive:true});
+ window.redraw=()=>{if(chartK)drawChart(chartK,chartA)};})();
+
+/* ---------- compare ---------- */
+async function compareWith(){if(cmp){cmp=null;$("#cmpBtn").textContent="Comparar com…";redraw();return}
+ const s=(prompt("Comparar "+current+" com qual moeda? (ex: ETH)")||"").trim().toUpperCase().replace(/USDT$/,"");if(!s)return;
+ try{cmp={s,k:await fetchSym(s,500)};$("#cmpBtn").textContent="Tirar "+s;redraw()}catch(e){alert("não achei "+s)}}
+
+/* ---------- paper trading ---------- */
+const getTrades=()=>{try{return JSON.parse(localStorage.getItem("radar:trades")||"[]")}catch(e){return[]}};
+const saveTrades=t=>localStorage.setItem("radar:trades",JSON.stringify(t));
+function paperBuy(){const a=chartA;const v=parseFloat(prompt("Quanto (em USD fictício) comprar de "+current+"? Preço agora "+fmt(a.price)));if(!v)return;
+ const tese=prompt("Sua tese em uma frase (por que agora?)")||"";const t=getTrades();t.push({s:current,side:"BUY",p:a.price,q:v/a.price,usd:v,t:Date.now(),tese});saveTrades(t);paperStatus();redraw()}
+function paperSell(){const a=chartA,t=getTrades(),pos=t.filter(x=>x.s===current).reduce((q,x)=>q+(x.side==="BUY"?x.q:-x.q),0);if(pos<=0){alert("sem posição em "+current);return}
+ t.push({s:current,side:"SELL",p:a.price,q:pos,usd:pos*a.price,t:Date.now()});saveTrades(t);paperStatus();redraw()}
+function paperStatus(){const t=getTrades().filter(x=>x.s===current);if(!t.length){$("#paperLine").textContent="";return}
+ let q=0,cost=0,real=0;t.forEach(x=>{if(x.side==="BUY"){q+=x.q;cost+=x.usd}else{const avg=cost/q;real+=x.q*(x.p-avg);cost-=x.q*avg;q-=x.q}});
+ const open=q>0?q*chartA.price-cost:0;$("#paperLine").innerHTML=`<span style="color:var(--mut)">paper ${current}: ${t.length} operações · realizado <b class="${real>=0?"up":"dn"}">${real>=0?"+":""}${real.toFixed(2)}</b>${q>0?` · em aberto <b class="${open>=0?"up":"dn"}">${open>=0?"+":""}${open.toFixed(2)}</b> (${q.toPrecision(4)} un)`:""}</span>`}
+
+/* ---------- Claude ---------- */
+function getKey(){let k=localStorage.getItem("radar:key");if(!k){k=prompt("Cole sua chave da API da Anthropic (sk-ant-...). Fica salva só neste celular.");if(k){k=k.trim();localStorage.setItem("radar:key",k)}}return k}
+async function askClaude(){if(!current)return;const a=data[current].a,k=data[current].k,out=$("#ai");
+ const last=k.slice(-60).map((p,i)=>({velas_atras:59-i,hora:tfLabel(p.t),o:+p.o.toPrecision(5),h:+p.h.toPrecision(5),l:+p.l.toPrecision(5),c:+p.c.toPrecision(5),v:Math.round(p.v)}));
+ const snap={ativo:current+"/USDT",tempo_grafico:tf,preco:a.price,rsi:+a.rsi.toFixed(1),sma20:a.sma20,sma50:a.sma50,pos_bollinger:+a.bbPos.toFixed(2),volume_z:+a.volZ.toFixed(2),var_vela:+a.chg1.toFixed(2),var_24velas:+a.chg24.toFixed(2),sinais:a.sig,ultimas_60_velas:last};
+ const body={model:window.storage?"claude-sonnet-4-6":"claude-haiku-4-5",max_tokens:900,
+  system:'Voce e um mentor de analise tecnica para um iniciante em paper trading. Portugues, direto. Responda SOMENTE um JSON valido, sem markdown, no formato: {"texto":"explicacao de ate 150 palavras: tendencia, momentum, volatilidade, volume, o que olhar a seguir, armadilha classica. Nunca diga comprar ou vender.","marcacoes":[{"velas_atras":N,"rotulo":"ate 3 palavras"}]}. Inclua 2 a 4 marcacoes apontando velas especificas das ultimas 60 que justificam o que voce disse (ex: pico de volume, topo, rompimento, cruzamento). velas_atras=0 e a vela atual.',
+  messages:[{role:"user",content:JSON.stringify(snap)}]};
+ const headers={"Content-Type":"application/json"};
+ if(!window.storage){const key=getKey();if(!key){out.textContent="Sem chave, sem professor.";return}headers["x-api-key"]=key;headers["anthropic-version"]="2023-06-01";headers["anthropic-dangerous-direct-browser-access"]="true"}
+ out.textContent="lendo o gráfico…";notes=[];
+ try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers,body:JSON.stringify(body)});const j=await r.json();
+  if(j.error){if(r.status===401)localStorage.removeItem("radar:key");out.textContent="Erro da API: "+j.error.message;return}
+  const txt=(j.content||[]).map(b=>b.text||"").join("\n").replace(/```json|```/g,"").trim();
+  try{const p=JSON.parse(txt);out.textContent=p.texto;notes=(p.marcacoes||[]).slice(0,4);view={start:Math.max(0,k.length-60),n:60};redraw()}catch(e){out.textContent=txt}
+ }catch(e){out.textContent="Não consegui falar com o Claude: "+e.message}
+}
+/* ---------- news ---------- */
+const FEEDS=[["CoinDesk","https://www.coindesk.com/arc/outboundfeeds/rss/"],["Cointelegraph","https://cointelegraph.com/rss"],["InfoMoney","https://www.infomoney.com.br/feed/"],["Decrypt","https://decrypt.co/feed"]];
+let kws=(localStorage.getItem("radar:kw")||"bitcoin,btc,ethereum,sec,etf,trump,fed,juros,selic,binance,hack,listing").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
+let seenNews=new Set(),newsItems=[],newsLoaded=false;
+function showTab(t){$("#tabM").classList.toggle("on",t==="m");$("#tabN").classList.toggle("on",t==="n");$("#list").style.display=t==="m"?"":"none";$("#news").style.display=t==="n"?"":"none";if(t==="n"&&!newsLoaded)loadNews()}
+function saveKw(){kws=$("#kw").value.split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);localStorage.setItem("radar:kw",kws.join(","));renderNews()}
+async function loadNews(){
+ const all=[];
+ await Promise.all(FEEDS.map(async([name,url])=>{try{const r=await fetch("https://api.rss2json.com/v1/api.json?rss_url="+encodeURIComponent(url));const j=await r.json();
+  (j.items||[]).slice(0,15).forEach(it=>all.push({src:name,title:it.title,link:it.link,t:new Date(it.pubDate).getTime(),desc:(it.description||"").replace(/<[^>]+>/g,"").slice(0,160)}))}catch(e){}}));
+ all.sort((a,b)=>b.t-a.t);newsItems=all;newsLoaded=true;
+ const fresh=all.filter(n=>!seenNews.has(n.link)&&hits(n).length);
+ if(seenNews.size&&alertsOn)fresh.slice(0,3).forEach(n=>notify(`📰 ${n.src}: ${hits(n).join(", ")}`,n.title));
+ all.forEach(n=>seenNews.add(n.link));renderNews();
+}
+const hits=n=>kws.filter(k=>(n.title+" "+n.desc).toLowerCase().includes(k));
+function renderNews(){$("#kw").value=kws.join(", ");const L=$("#newslist");if(!newsItems.length){L.innerHTML='<div class="empty">Nenhum feed respondeu. Tenta de novo em 1 min.</div>';return}
+ const sorted=[...newsItems].sort((a,b)=>(hits(b).length-hits(a).length)||(b.t-a.t));
+ L.innerHTML=sorted.slice(0,40).map(n=>{const h=hits(n);return `<a class="nw ${h.length?"hit":""}" href="${n.link}" target="_blank" rel="noopener">${n.title}<small>${n.src} · ${new Date(n.t).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}${h.length?` · <span class="k">${h.join(", ")}</span>`:""}</small></a>`}).join("")}
+
+/* ---------- AI read + scorecard ---------- */
+const getReads=()=>{try{return JSON.parse(localStorage.getItem("radar:reads")||"[]")}catch(e){return[]}};
+const saveReads=r=>localStorage.setItem("radar:reads",JSON.stringify(r.slice(-200)));
+async function claudeJSON(system,user){const headers={"Content-Type":"application/json"};
+ if(!window.storage){const key=getKey();if(!key)throw new Error("sem chave");headers["x-api-key"]=key;headers["anthropic-version"]="2023-06-01";headers["anthropic-dangerous-direct-browser-access"]="true"}
+ const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers,body:JSON.stringify({model:window.storage?"claude-sonnet-4-6":"claude-haiku-4-5",max_tokens:700,system,messages:[{role:"user",content:user}]})});
+ const j=await r.json();if(j.error){if(r.status===401)localStorage.removeItem("radar:key");throw new Error(j.error.message)}
+ return JSON.parse((j.content||[]).map(b=>b.text||"").join("").replace(/```json|```/g,"").trim())}
+const CAT={alta:"FAVORÁVEL",neutro:"NEUTRO",baixa:"DESFAVORÁVEL"};
+let lastRead={};
+function aiBadge(s){const r=lastRead[s];if(!r)return"";const age=Math.round((Date.now()-r.t)/60000);
+ return `<div class="cat ${r.vies}"><span>🤖 ${CAT[r.vies]} · ${r.conf}%</span><small>há ${age} min · inv. ${r.invalida.slice(0,28)}</small></div>`}
+async function readSymbol(s){const d=data[s];if(!d||d.err)return null;const a=d.a,k=d.k;
+ const last=k.slice(-40).map(p=>[+p.o.toPrecision(5),+p.h.toPrecision(5),+p.l.toPrecision(5),+p.c.toPrecision(5),Math.round(p.v)]);
+ const snap={ativo:s,tempo_grafico:tf,preco:a.price,rsi:+a.rsi.toFixed(1),sma20:a.sma20,sma50:a.sma50,pos_bollinger:+a.bbPos.toFixed(2),volume_z:+a.volZ.toFixed(2),var_vela:+a.chg1.toFixed(2),var_24velas:+a.chg24.toFixed(2),sinais:a.sig,ultimas_40_velas_OHLCV:last};
+ const p=await claudeJSON('Voce e um analista tecnico. Leia o cenario das proximas 12 velas para um iniciante em paper trading. Responda SOMENTE JSON: {"vies":"alta"|"neutro"|"baixa","confianca":0-100,"motivo":"2 frases","confirma":"o que veria se estiver certo","invalida":"nivel de preco ou evento que prova que errou","risco":"a armadilha deste cenario"}. Seja honesto com a confianca: mercado lateral sem volume e neutro com confianca baixa. So de alta com confianca >=70 se tendencia, momentum E volume concordam. Isso e uma hipotese para teste, nao recomendacao.',JSON.stringify(snap));
+ const rec={s,tf,t:Date.now(),p:a.price,vies:p.vies,conf:p.confianca,interval:k[1].t-k[0].t,invalida:p.invalida||""};
+ const r=getReads();r.push(rec);saveReads(r);
+ const prev=lastRead[s];lastRead[s]=rec;
+ if(alertsOn&&p.vies==="alta"&&p.confianca>=70&&!(prev&&prev.vies==="alta"&&prev.conf>=70))notify(`🤖 ${s} FAVORÁVEL ${p.confianca}%`,`${fmt(a.price)} · invalida se: ${(p.invalida||"").slice(0,80)}`);
+ return p}
+async function aiRead(){if(!current)return;const box=$("#read");box.innerHTML='<div class="rd">lendo…</div>';
+ try{const p=await readSymbol(current);
+  box.innerHTML=`<div class="rd"><h3 class="${p.vies}">${CAT[p.vies]} · confiança ${p.confianca}%</h3>${p.motivo}<b>confirma se</b>${p.confirma}<b>invalida se</b>${p.invalida}<b>risco</b>${p.risco}<b>lembrete</b>Hipótese pra testar no paper, não ordem. O placar confere sozinho daqui a 12 velas.</div>`;
+  scoreboard()}catch(e){box.innerHTML=`<div class="rd">Não deu: ${e.message}</div>`}}
+/* auto mode: le todas as moedas a cada N min */
+let autoOn=false,autoTimer=null,AUTO_MIN=+(localStorage.getItem('radar:automin')||10);
+function setAutoMin(v){AUTO_MIN=+v;localStorage.setItem('radar:automin',AUTO_MIN);if(autoOn){clearInterval(autoTimer);autoTimer=setInterval(autoCycle,AUTO_MIN*60000);$("#status").textContent=`IA a cada ${AUTO_MIN} min`}}
+async function toggleAuto(){if(autoOn){autoOn=false;clearInterval(autoTimer);$("#auto").textContent="🤖 off";return}
+ if(!window.storage&&!getKey())return;
+ if(!confirm(`Modo automático: a IA lê ${syms.length} moeda(s) a cada ${AUTO_MIN} min (muda no seletor ao lado, a qualquer hora) enquanto o app estiver aberto. Custo aproximado com Haiku: R$ ${(syms.length*1440/AUTO_MIN*0.006*5.5).toFixed(2)}/dia se ficar aberto 24h. Ligar?`))return;
+ autoOn=true;$("#auto").textContent="🤖 on";autoCycle();autoTimer=setInterval(autoCycle,AUTO_MIN*60000)}
+async function autoCycle(){for(const s of syms){try{await readSymbol(s)}catch(e){console.log(s,e.message)}}render();scoreboard()}
+async function scoreboard(){const r=getReads();const now=Date.now();
+ for(const x of r){if(x.result!=null||now-x.t<12*x.interval)continue;
+  try{const k=await fetchSymTf(x.s,x.tf,2);const px=k[k.length-1].c,ch=(px/x.p-1)*100;x.after=+ch.toFixed(2);
+   x.result=x.vies==="alta"?(ch>0.5?1:0):x.vies==="baixa"?(ch<-0.5?1:0):(Math.abs(ch)<=1?1:0)}catch(e){}}
+ saveReads(r);
+ const by=v=>{const d=r.filter(x=>x.vies===v&&x.result!=null);const h=d.filter(x=>x.result).length;const hc=d.filter(x=>x.conf>=70);const hh=hc.filter(x=>x.result).length;return d.length?`${CAT[v]} ${h}/${d.length} (${(h/d.length*100).toFixed(0)}%)${hc.length?` · ≥70%: ${hh}/${hc.length}`:""}`:null};
+ const parts=["alta","neutro","baixa"].map(by).filter(Boolean),pend=r.filter(x=>x.result==null).length;
+ $("#score").innerHTML=`<span style="color:var(--mut)">placar da IA · ${parts.length?parts.join(" · "):"sem leituras conferidas"}${pend?` · ${pend} aguardando`:""}</span>`;
+ const sb=$("#scoreMain");if(sb)sb.innerHTML=$("#score").innerHTML}
+async function fetchSymTf(s,t,n){const save=tf;tf=t;try{return await fetchSym(s,n)}finally{tf=save}}
+
+/* ---------- alerts ---------- */
+let alertsOn=false,lastSig={},cool={},log=[];
+async function toggleAlerts(){
+ if(alertsOn){alertsOn=false;$("#bell").textContent="🔔 off";return}
+ if(!("Notification" in window)){alert("Este navegador não tem notificações. No iPhone, adicione à tela inicial primeiro.");return}
+ const p=await Notification.requestPermission();
+ if(p!=="granted"){alert("Permissão negada. Libere nas configurações do site.");return}
+ alertsOn=true;$("#bell").textContent="🔔 on";notify("Alertas ligados","Vou avisar quando um sinal técnico ou notícia com suas palavras-chave aparecer, enquanto o app estiver aberto.");
+}
+function notify(title,body){try{new Notification(title,{body,tag:title});navigator.vibrate?.([120,60,120])}catch(e){}}
+function checkAlerts(){
+ const now=Date.now();
+ for(const s of syms){const a=data[s]?.a;if(!a)continue;const prev=lastSig[s]||[];
+  const fresh=a.sig.filter(x=>!prev.includes(x)&&(!cool[s+x]||now-cool[s+x]>60*60*1000));
+  fresh.forEach(x=>{cool[s+x]=now;log.unshift({s,x,p:a.price,t:now});if(alertsOn)notify(`${s} · ${x}`,`${fmt(a.price)} · ${tf} · RSI ${a.rsi.toFixed(0)} · vol z ${a.volZ.toFixed(1)}`)});
+  lastSig[s]=a.sig.slice();
+ }
+ log=log.slice(0,8);
+ $("#alog").innerHTML=log.map(l=>`<div class="al"><span><b>${l.s}</b> ${l.x} @ ${fmt(l.p)}</span><small>${new Date(l.t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</small></div>`).join("");
+}
+
+/* ---------- boot ---------- */
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+(async()=>{$('#autoMin').value=String(AUTO_MIN);await loadSyms();tabs();await refresh();timer=setInterval(refresh,30000);setInterval(tick,2000);loadNews();setInterval(loadNews,180000);setInterval(scoreboard,120000);scoreboard()})();
+</script>
+</body>
+</html>
